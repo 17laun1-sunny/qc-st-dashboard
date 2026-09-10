@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QC ST Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: {
+                brandBase: '#F9F8F5', brandSurface: '#FFFFFF', brandPrimary: '#111827', 
+                brandSecondary: '#6B7280', brandSuccess: '#10B981', brandStudent: '#0284C7', brandBorder: '#E5E7EB',
+                brandCritical: '#FA8072', brandWarning: '#F59E0B'
+            }}}
+        }
+    </script>
+    <style>
+        html { scroll-behavior: smooth; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: loading 1.5s infinite; }
+        .dark .skeleton { background: linear-gradient(90deg, #374151 25%, #4B5563 50%, #374151 75%); }
+        @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    </style>
+</head>
+<body class="bg-brandBase dark:bg-gray-900 text-brandPrimary dark:text-white transition-colors duration-200 antialiased">
+
+    <!-- PIN Lock Screen -->
+    <div id="pin-screen" class="fixed inset-0 bg-brandBase dark:bg-gray-900 z-50 flex items-center justify-center fade-in">
+        <div class="bg-brandSurface dark:bg-gray-800 p-8 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm max-w-sm w-full text-center">
+            <h1 class="text-2xl font-bold mb-2">QC ST Dashboard</h1>
+            <p class="text-brandSecondary dark:text-gray-400 text-sm mb-6">Enter company PIN to access.</p>
+            <input type="password" id="pin-input" class="w-full px-4 py-2 mb-4 border border-brandBorder dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-center text-xl tracking-widest outline-none" placeholder="••••••">
+            <button onclick="verifyPin()" class="w-full bg-brandStudent hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Unlock</button>
+            <p id="pin-error" class="text-brandCritical text-sm mt-3 hidden">Incorrect PIN.</p>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app-container" class="hidden flex flex-col min-h-screen">
+        <header class="sticky top-0 z-40 bg-brandSurface/90 dark:bg-gray-800/90 backdrop-blur-md border-b border-brandBorder dark:border-gray-700 px-6 py-4 shadow-sm">
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+                <h1 class="text-xl font-bold">QC ST Dashboard</h1>
+                <div class="flex items-center gap-4 w-full md:w-auto">
+                    <select id="pic-select" class="bg-gray-50 dark:bg-gray-700 border border-brandBorder rounded-lg px-3 py-1.5 text-sm outline-none">
+                        <option value="all">All Students (Global)</option>
+                        <option value="Lisa">Lisa's Students</option>
+                    </select>
+                    <button onclick="fetchData()" class="bg-brandPrimary dark:bg-gray-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold">Sync Data</button>
+                    <button onclick="toggleDarkMode()" class="text-brandSecondary text-xl">🌓</button>
+                </div>
+            </div>
+        </header>
+
+        <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-brandSuccess text-white px-4 py-2 rounded-full shadow-lg text-sm font-semibold transition-transform duration-300 translate-y-[-150%] z-50">
+            Data synced just now
+        </div>
+
+        <main class="flex-grow max-w-7xl mx-auto w-full p-6 space-y-8 fade-in">
+            <!-- Macro Cards -->
+            <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="bg-brandSurface dark:bg-gray-800 p-4 rounded-2xl border shadow-sm flex flex-col items-center">
+                    <span class="text-brandSecondary text-xs uppercase font-bold tracking-wider mb-1">Active Flags</span>
+                    <span id="metric-flags" class="text-3xl font-black">--</span>
+                </div>
+                <div class="bg-brandSurface dark:bg-gray-800 p-4 rounded-2xl border shadow-sm flex flex-col items-center">
+                    <span class="text-brandSecondary text-xs uppercase font-bold tracking-wider mb-1">Missing Post</span>
+                    <span id="metric-post" class="text-3xl font-black">--</span>
+                </div>
+                <div class="bg-brandSurface dark:bg-gray-800 p-4 rounded-2xl border shadow-sm flex flex-col items-center">
+                    <span class="text-brandSecondary text-xs uppercase font-bold tracking-wider mb-1">Missing Nomad</span>
+                    <span id="metric-nomad" class="text-3xl font-black">--</span>
+                </div>
+                <div class="bg-brandSurface dark:bg-gray-800 p-4 rounded-2xl border border-brandCritical shadow-sm flex flex-col items-center">
+                    <span class="text-brandCritical text-xs uppercase font-bold tracking-wider mb-1">Critical Watchlist</span>
+                    <span id="metric-watch" class="text-3xl font-black text-brandCritical">--</span>
+                </div>
+            </section>
+
+            <!-- Action Items (Flags) -->
+            <section class="grid md:grid-cols-2 gap-6" id="action-items-container">
+                <div class="bg-brandSurface dark:bg-gray-800 p-5 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm">
+                    <h3 class="font-bold text-brandPrimary dark:text-white mb-3">⚠️ Missing Data Collection</h3>
+                    <ul id="missing-data-list" class="space-y-2 text-sm text-brandSecondary italic">No missing data.</ul>
+                </div>
+                <div class="bg-brandSurface dark:bg-gray-800 p-5 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm">
+                    <h3 class="font-bold text-brandPrimary dark:text-white mb-3">🚩 Academic & Behavior Flags</h3>
+                    <ul id="behavior-flag-list" class="space-y-2 text-sm text-brandSecondary italic">No active flags.</ul>
+                </div>
+            </section>
+
+            <!-- Roster -->
+            <section>
+                <h2 class="text-lg font-bold mb-4">Student Roster</h2>
+                <div id="roster-container" class="space-y-3"></div>
+            </section>
+        </main>
+        
+        <button onclick="window.scrollTo(0,0)" class="fixed bottom-6 right-6 bg-brandPrimary dark:bg-gray-600 text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform">↑</button>
+    </div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbzNS8EVIRC-8owW0okhh1mD284l0CmjzUGCyJiNYPEE0gqceIGyGo5KuXMMnZ5-XYu_/exec";
+        const APP_PIN = "237147";
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            }
+            if (localStorage.getItem('qc_pin_verified') === 'true') unlockApp();
+        });
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+        }
+
+        function verifyPin() {
+            if (document.getElementById('pin-input').value === APP_PIN) {
+                localStorage.setItem('qc_pin_verified', 'true');
+                unlockApp();
+            } else {
+                document.getElementById('pin-error').classList.remove('hidden');
+            }
+        }
+
+        function unlockApp() {
+            document.getElementById('pin-screen').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            fetchData();
+            // Background auto-refresh every 30 mins
+            setInterval(fetchData, 30 * 60 * 1000);
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.style.transform = 'translate(-50%, 20px)';
+            setTimeout(() => { toast.style.transform = 'translate(-50%, -150%)'; }, 3000);
+        }
+
+        function getHealthBadge(healthStr) {
+            if(healthStr === 'Excellent') return `<span class="bg-brandSuccess/20 text-brandSuccess px-2 py-0.5 rounded text-xs font-bold uppercase">Excellent</span>`;
+            if(healthStr === 'Average') return `<span class="bg-brandWarning/20 text-brandWarning px-2 py-0.5 rounded text-xs font-bold uppercase">Average</span>`;
+            if(healthStr === 'Help') return `<span class="bg-brandCritical/20 text-brandCritical px-2 py-0.5 rounded text-xs font-bold uppercase">Help Needed</span>`;
+            return ``;
+        }
+
+        async function fetchData() {
+            const container = document.getElementById('roster-container');
+            if(container.innerHTML === '') container.innerHTML = '<div class="skeleton h-20 rounded-2xl w-full"></div>';
+            
+            const pic = document.getElementById('pic-select').value;
+            try {
+                const response = await fetch(`${API_URL}?action=getDashboardData&pic_name=${pic}`);
+                const json = await response.json();
+                if(json.status === 'success') {
+                    renderDashboard(json.data);
+                    showToast();
+                } else container.innerHTML = `<p class="text-brandCritical">Error: ${json.message}</p>`;
+            } catch (err) {
+                container.innerHTML = `<p class="text-brandCritical">Google Servers Busy - Retry in 60s</p>`;
+            }
+        }
+
+        function renderDashboard(data) {
+            document.getElementById('metric-flags').innerText = data.summary.total_flags;
+            document.getElementById('metric-post').innerText = data.summary.missing_post;
+            document.getElementById('metric-nomad').innerText = data.summary.missing_nomad;
+            document.getElementById('metric-watch').innerText = data.summary.critical_watchlist;
+
+            // Render Flags
+            const flagList = document.getElementById('behavior-flag-list');
+            if(data.action_items.behavior_flags.length > 0) {
+                flagList.innerHTML = data.action_items.behavior_flags.map(f => 
+                    `<li class="p-2 bg-brandCritical/10 border border-brandCritical/30 rounded text-brandPrimary dark:text-white">
+                        <b>${f.student_name}</b>: ${f.type} <span class="text-xs ml-2 text-brandSecondary">Teacher: ${f.teacher}</span>
+                    </li>`
+                ).join('');
+            } else {
+                flagList.innerHTML = `<div class="text-brandSuccess font-bold">🎉 All clear!</div>`;
+            }
+
+            // Render Roster
+            const container = document.getElementById('roster-container');
+            container.innerHTML = '';
+            
+            if(Object.keys(data.roster_by_course).length === 0) {
+                container.innerHTML = '<div class="p-8 text-center text-brandSuccess font-bold text-lg">All clear! No students to show.</div>';
+                return;
+            }
+
+            for (const [course, students] of Object.entries(data.roster_by_course)) {
+                let courseHTML = `<div class="mb-6"><h3 class="font-bold text-brandSecondary mb-2 border-b border-brandBorder dark:border-gray-700 pb-1">${course}</h3><div class="space-y-3">`;
+                
+                students.forEach(student => {
+                    courseHTML += `
+                    <div id="student-card-${student.student_id}" class="bg-brandSurface dark:bg-gray-800 p-4 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm hover:border-brandStudent cursor-pointer transition-colors" onclick="toggleHistory('${student.student_id}')">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h4 class="font-bold">${student.student_name} ${getHealthBadge(student.health)}</h4>
+                                <p class="text-xs text-brandSecondary mt-1">ID: ${student.student_id} | Campus: ${student.campus_id}</p>
+                            </div>
+                            <span class="bg-gray-100 dark:bg-gray-700 text-brandSecondary px-3 py-1 rounded-full text-xs font-semibold">Expand ⌄</span>
+                        </div>
+                    </div>`;
+                });
+                
+                container.innerHTML += courseHTML + `</div></div>`;
+            }
+        }
+
+        async function toggleHistory(studentId) {
+            const bodyId = `history-body-${studentId}`;
+            let body = document.getElementById(bodyId);
+            
+            if (body) {
+                body.classList.toggle('hidden');
+                return;
+            }
+
+            const card = document.getElementById(`student-card-${studentId}`);
+            body = document.createElement('div');
+            body.id = bodyId;
+            body.className = "mt-4 pt-4 border-t border-brandBorder dark:border-gray-700 space-y-3 cursor-default";
+            body.innerHTML = `<div class="skeleton h-12 rounded-lg w-full"></div>`;
+            
+            body.onclick = (e) => e.stopPropagation();
+            card.appendChild(body);
+
+            try {
+                const res = await fetch(`${API_URL}?action=getStudentHistory&student_id=${studentId}`);
+                const json = await res.json();
+                if (json.status === 'success') renderHistoryList(body, json.data);
+                else body.innerHTML = `<p class="text-brandCritical text-sm">Failed to load history.</p>`;
+            } catch(err) {
+                body.innerHTML = `<p class="text-brandCritical text-sm">Network error.</p>`;
+            }
+        }
+
+        function renderHistoryList(container, historyData) {
+            if (historyData.length === 0) {
+                container.innerHTML = `<p class="text-brandSecondary text-sm italic">No past classes found.</p>`;
+                return;
+            }
+
+            container.innerHTML = historyData.map(item => {
+                const hasNomad = item.nomad_text && item.nomad_text.length > 0;
+                let behaviorHTML = `<span class="text-brandCritical text-sm italic">Pending teacher review</span>`;
+                
+                if (hasNomad) {
+                    const attMatch = item.nomad_text.match(/Attentiveness:\s*(\d)/);
+                    const motMatch = item.nomad_text.match(/Motivation:\s*(\d)/);
+                    const att = attMatch ? attMatch[1] : '?';
+                    const mot = motMatch ? motMatch[1] : '?';
+                    behaviorHTML = `
+                        <span class="text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">Attentiveness: <b>${att}/5</b></span>
+                        <span class="text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded ml-2">Motivation: <b>${mot}/5</b></span>
+                        <details class="mt-2 text-sm text-brandSecondary"><summary class="cursor-pointer hover:text-brandPrimary font-bold">Read Comment</summary><p class="mt-1 p-2 bg-gray-50 dark:bg-gray-900 rounded">${item.nomad_text}</p></details>
+                    `;
+                }
+
+                return `
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-brandBorder dark:border-gray-700">
+                    <div class="mb-2 md:mb-0">
+                        <span class="font-bold text-sm block">Session ${item.session} <span class="text-brandSecondary font-normal ml-2">${item.date}</span></span>
+                        <span class="text-xs text-brandSecondary">Teacher: ${item.teacher}</span>
+                    </div>
+                    <div class="text-left md:text-right w-full md:w-auto">${behaviorHTML}</div>
+                </div>`;
+            }).join('');
+        }
+    </script>
+</body>
+</html>
