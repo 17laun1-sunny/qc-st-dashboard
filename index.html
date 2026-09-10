@@ -2,274 +2,502 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>QC ST Dashboard</title>
+    
+    <link rel="preconnect" href="https://script.google.com">
+    <link rel="preconnect" href="https://script.googleusercontent.com">
+    
+    <link id="favicon" rel="icon" type="image/png" href="./P%20Logo_Grey.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: { extend: { colors: {
-                brandBase: '#F9F8F5', brandSurface: '#FFFFFF', brandPrimary: '#111827', 
-                brandSecondary: '#6B7280', brandSuccess: '#10B981', brandStudent: '#0284C7', brandBorder: '#E5E7EB',
-                brandCritical: '#FA8072', brandWarning: '#F59E0B'
-            }}}
+            theme: {
+                extend: {
+                    colors: {
+                        brandBase: '#F9F8F5', brandSurface: '#FFFFFF', brandPrimary: '#111827', 
+                        brandSecondary: '#6B7280', brandSuccess: '#10B981', brandStudent: '#0284C7', brandBorder: '#E5E7EB',
+                        brandCritical: '#FA8072', brandWarning: '#F59E0B'
+                    },
+                    fontFamily: { sans: ['Inter', 'Helvetica Neue', 'Arial', 'sans-serif'] }
+                }
+            }
         }
     </script>
+
     <style>
-        html { scroll-behavior: smooth; }
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        html, body { max-width: 100vw; overflow-x: hidden; touch-action: pan-y; transition: background-color 0.3s ease, color 0.3s ease; }
+        
+        .btn-gradient { background: #111827; color: #FFFFFF; font-weight: 600; transition: all 0.2s ease; }
+        .btn-gradient:hover { background: #1F2937; transform: translateY(-1px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .dark .btn-gradient { background: #E5E7EB; color: #111827; }
+        .dark .btn-gradient:hover { background: #FFFFFF; }
+        
+        .input-ring:focus { outline: none; box-shadow: 0 0 0 2px #0284C7; border-color: #0284C7; }
+
+        @keyframes swoopIn {
+            0% { transform: translateY(30px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+        .animate-swoop { animation: swoopIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        /* Skeleton Loader */
         .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: loading 1.5s infinite; }
         .dark .skeleton { background: linear-gradient(90deg, #374151 25%, #4B5563 50%, #374151 75%); }
         @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
     </style>
 </head>
-<body class="bg-brandBase dark:bg-gray-900 text-brandPrimary dark:text-white transition-colors duration-200 antialiased">
+<body class="bg-brandBase dark:bg-gray-900 text-brandPrimary dark:text-gray-100 font-sans antialiased min-h-screen flex flex-col items-center p-4 pt-8 sm:pt-10 transition-colors duration-300 relative">
 
-    <!-- PIN Lock Screen -->
-    <div id="pin-screen" class="fixed inset-0 bg-brandBase dark:bg-gray-900 z-50 flex items-center justify-center fade-in">
-        <div class="bg-brandSurface dark:bg-gray-800 p-8 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm max-w-sm w-full text-center">
-            <h1 class="text-2xl font-bold mb-2">QC ST Dashboard</h1>
-            <p class="text-brandSecondary dark:text-gray-400 text-sm mb-6">Enter company PIN to access.</p>
-            <input type="password" id="pin-input" class="w-full px-4 py-2 mb-4 border border-brandBorder dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-center text-xl tracking-widest outline-none" placeholder="••••••">
-            <button onclick="verifyPin()" class="w-full bg-brandStudent hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Unlock</button>
-            <p id="pin-error" class="text-brandCritical text-sm mt-3 hidden">Incorrect PIN.</p>
+    <!-- Global Toast Banners -->
+    <div id="globalError" class="hidden opacity-0 transition-opacity duration-300 fixed top-4 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-6 py-3 rounded-lg shadow-md z-50 text-sm font-medium"></div>
+    <div id="globalSuccess" class="hidden opacity-0 transition-opacity duration-300 fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-100 border border-green-400 text-green-700 px-6 py-3 rounded-lg shadow-md z-50 text-sm font-medium"></div>
+
+    <!-- Floating Controls -->
+    <div class="fixed bottom-6 left-6 sm:bottom-8 sm:left-8 z-40">
+        <button onclick="toggleTheme()" aria-label="Toggle dark mode" class="p-3 rounded-full bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            <svg id="themeIcon" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+            </svg>
+        </button>
+    </div>
+
+    <button id="backToTopBtn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" aria-label="Scroll to top" class="hidden opacity-0 fixed bottom-6 right-6 sm:bottom-8 sm:right-8 z-40 p-3 rounded-full bg-brandPrimary dark:bg-white text-white dark:text-brandPrimary shadow-lg hover:scale-105 transition-all duration-300">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"></path></svg>
+    </button>
+
+    <!-- Global Skeleton Loader -->
+    <div id="skeletonLoader" class="hidden w-full max-w-4xl mt-2 sm:mt-4 animate-pulse">
+        <div class="flex justify-between items-center mb-6 sm:mb-8 px-1">
+            <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded-md w-48 sm:w-64"></div>
+            <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded-md w-32"></div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="h-24 bg-gray-200 dark:bg-gray-700 rounded-2xl w-full"></div>
+            <div class="h-24 bg-gray-200 dark:bg-gray-700 rounded-2xl w-full"></div>
+            <div class="h-24 bg-gray-200 dark:bg-gray-700 rounded-2xl w-full"></div>
+            <div class="h-24 bg-gray-200 dark:bg-gray-700 rounded-2xl w-full"></div>
+        </div>
+        <div class="h-40 bg-gray-200 dark:bg-gray-700 rounded-2xl w-full mb-6"></div>
+    </div>
+
+    <!-- LOGIN / PIN SECTION -->
+    <div id="loginSection" class="hidden w-full max-w-sm mt-8 sm:mt-12 transition-opacity duration-300 opacity-100">
+        <div class="text-center mb-8 sm:mb-10">
+            <img src="./Preface Logo_Grey.png" alt="Preface Logo" onerror="this.style.display='none'" class="block dark:hidden h-12 sm:h-16 mx-auto mb-2 sm:mb-4 object-contain">
+            <img src="./Preface Logo_Whitepng.png" alt="Preface Logo" onerror="this.style.display='none'" class="hidden dark:block h-12 sm:h-16 mx-auto mb-2 sm:mb-4 object-contain">
+            <p class="text-brandSecondary dark:text-gray-400 text-sm font-semibold tracking-wide uppercase">QC ST Dashboard</p>
+        </div>
+        <div class="bg-brandSurface dark:bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-sm border border-brandBorder dark:border-gray-700">
+            <div id="loginError" class="hidden text-red-500 text-sm mb-4 text-center transition-opacity duration-300"></div>
+            <div class="space-y-4 sm:space-y-5">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">Company PIN</label>
+                    <input type="password" id="pinInput" onkeypress="if(event.key === 'Enter') handleLogin()" class="w-full bg-brandBase dark:bg-gray-900 border border-brandBorder dark:border-gray-700 rounded-lg px-4 py-3 text-brandPrimary dark:text-white input-ring transition-colors text-center tracking-widest text-lg" placeholder="••••••">
+                </div>
+                <button onclick="handleLogin()" class="w-full btn-gradient rounded-lg py-3 mt-2 sm:mt-4 flex justify-center items-center">
+                    Unlock Dashboard
+                </button>
+            </div>
         </div>
     </div>
 
-    <!-- Main App -->
-    <div id="app-container" class="hidden flex flex-col min-h-screen">
-        <header class="sticky top-0 z-40 bg-brandSurface/90 dark:bg-gray-800/90 backdrop-blur-md border-b border-brandBorder dark:border-gray-700 px-6 py-4 shadow-sm">
-            <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-                <h1 class="text-xl font-bold">QC ST Dashboard</h1>
-                <div class="flex items-center gap-4 w-full md:w-auto">
-                    <select id="pic-select" class="bg-gray-50 dark:bg-gray-700 border border-brandBorder rounded-lg px-3 py-1.5 text-sm outline-none">
+    <!-- MAIN APP SHELL -->
+    <div id="appSection" class="hidden opacity-0 w-full max-w-4xl mt-2 sm:mt-4 pb-20">
+        
+        <!-- Sticky Header & Nav -->
+        <div class="sticky top-0 z-30 bg-brandBase/95 dark:bg-gray-900/95 backdrop-blur-md pt-2 pb-4 border-b border-brandBorder dark:border-gray-800 mb-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 px-1 sm:px-0">
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-brandPrimary dark:text-white truncate">QC ST Dashboard</h1>
+                    <p class="text-xs text-brandSecondary dark:text-gray-400 mt-1">Holistic Location Tracking</p>
+                </div>
+                <div class="flex items-center gap-3 w-full sm:w-auto">
+                    <select id="picSelect" onchange="fetchData()" class="flex-grow sm:flex-grow-0 bg-brandSurface dark:bg-gray-800 border border-brandBorder dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-brandPrimary dark:text-white input-ring font-medium">
                         <option value="all">All Students (Global)</option>
                         <option value="Lisa">Lisa's Students</option>
                     </select>
-                    <button onclick="fetchData()" class="bg-brandPrimary dark:bg-gray-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold">Sync Data</button>
-                    <button onclick="toggleDarkMode()" class="text-brandSecondary text-xl">🌓</button>
+                    <button onclick="fetchData()" class="btn-gradient px-4 py-2 rounded-lg text-sm flex-shrink-0">
+                        <svg class="w-4 h-4 inline-block -mt-0.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sync
+                    </button>
+                    <button onclick="logout()" class="text-sm text-brandSecondary dark:text-gray-400 hover:text-brandPrimary dark:hover:text-white font-medium transition-colors ml-2">Lock</button>
                 </div>
             </div>
-        </header>
-
-        <div id="toast" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-brandSuccess text-white px-4 py-2 rounded-full shadow-lg text-sm font-semibold transition-transform duration-300 translate-y-[-150%] z-50">
-            Data synced just now
         </div>
 
-        <main class="flex-grow max-w-7xl mx-auto w-full p-6 space-y-8 fade-in">
-            <!-- Macro Cards -->
-            <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-brandSurface dark:bg-gray-800 p-4 rounded-2xl border shadow-sm flex flex-col items-center">
-                    <span class="text-brandSecondary text-xs uppercase font-bold tracking-wider mb-1">Active Flags</span>
-                    <span id="metric-flags" class="text-3xl font-black">--</span>
-                </div>
-                <div class="bg-brandSurface dark:bg-gray-800 p-4 rounded-2xl border shadow-sm flex flex-col items-center">
-                    <span class="text-brandSecondary text-xs uppercase font-bold tracking-wider mb-1">Missing Post</span>
-                    <span id="metric-post" class="text-3xl font-black">--</span>
-                </div>
-                <div class="bg-brandSurface dark:bg-gray-800 p-4 rounded-2xl border shadow-sm flex flex-col items-center">
-                    <span class="text-brandSecondary text-xs uppercase font-bold tracking-wider mb-1">Missing Nomad</span>
-                    <span id="metric-nomad" class="text-3xl font-black">--</span>
-                </div>
-                <div class="bg-brandSurface dark:bg-gray-800 p-4 rounded-2xl border border-brandCritical shadow-sm flex flex-col items-center">
-                    <span class="text-brandCritical text-xs uppercase font-bold tracking-wider mb-1">Critical Watchlist</span>
-                    <span id="metric-watch" class="text-3xl font-black text-brandCritical">--</span>
-                </div>
-            </section>
+        <!-- Macro Cards -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+            <div class="bg-brandSurface dark:bg-gray-800 p-4 sm:p-5 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm flex flex-col justify-center items-center hover:-translate-y-0.5 transition-transform">
+                <span class="text-brandSecondary text-[10px] sm:text-xs uppercase font-bold tracking-wider mb-1">Active Flags</span>
+                <span id="metric-flags" class="text-3xl sm:text-4xl font-black text-brandPrimary dark:text-white">0</span>
+            </div>
+            <div class="bg-brandSurface dark:bg-gray-800 p-4 sm:p-5 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm flex flex-col justify-center items-center hover:-translate-y-0.5 transition-transform">
+                <span class="text-brandSecondary text-[10px] sm:text-xs uppercase font-bold tracking-wider mb-1">Missing Post</span>
+                <span id="metric-post" class="text-3xl sm:text-4xl font-black text-brandPrimary dark:text-white">0</span>
+            </div>
+            <div class="bg-brandSurface dark:bg-gray-800 p-4 sm:p-5 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm flex flex-col justify-center items-center hover:-translate-y-0.5 transition-transform">
+                <span class="text-brandSecondary text-[10px] sm:text-xs uppercase font-bold tracking-wider mb-1">Missing Nomad</span>
+                <span id="metric-nomad" class="text-3xl sm:text-4xl font-black text-brandPrimary dark:text-white">0</span>
+            </div>
+            <div class="bg-red-50 dark:bg-red-900/20 p-4 sm:p-5 rounded-2xl border border-red-200 dark:border-red-800 shadow-sm flex flex-col justify-center items-center hover:-translate-y-0.5 transition-transform">
+                <span class="text-brandCritical text-[10px] sm:text-xs uppercase font-bold tracking-wider mb-1">Critical Watchlist</span>
+                <span id="metric-watch" class="text-3xl sm:text-4xl font-black text-brandCritical">0</span>
+            </div>
+        </section>
 
-            <!-- Action Items (Flags) -->
-            <section class="grid md:grid-cols-2 gap-6" id="action-items-container">
-                <div class="bg-brandSurface dark:bg-gray-800 p-5 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm">
-                    <h3 class="font-bold text-brandPrimary dark:text-white mb-3">⚠️ Missing Data Collection</h3>
-                    <ul id="missing-data-list" class="space-y-2 text-sm text-brandSecondary italic">No missing data.</ul>
-                </div>
-                <div class="bg-brandSurface dark:bg-gray-800 p-5 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm">
-                    <h3 class="font-bold text-brandPrimary dark:text-white mb-3">🚩 Academic & Behavior Flags</h3>
-                    <ul id="behavior-flag-list" class="space-y-2 text-sm text-brandSecondary italic">No active flags.</ul>
-                </div>
-            </section>
+        <!-- Action Items (Flags) -->
+        <section class="grid md:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-10">
+            <div class="bg-brandSurface dark:bg-gray-800 p-5 sm:p-6 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm">
+                <h3 class="font-bold text-gray-900 dark:text-white mb-3 text-sm sm:text-base flex items-center gap-2">
+                    <svg class="w-5 h-5 text-brandWarning" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Missing Data Collection
+                </h3>
+                <ul id="missing-data-list" class="space-y-2 text-sm text-brandSecondary italic">Loading...</ul>
+            </div>
+            <div class="bg-brandSurface dark:bg-gray-800 p-5 sm:p-6 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm">
+                <h3 class="font-bold text-gray-900 dark:text-white mb-3 text-sm sm:text-base flex items-center gap-2">
+                    <svg class="w-5 h-5 text-brandCritical" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path></svg>
+                    Academic & Behavior Flags
+                </h3>
+                <ul id="behavior-flag-list" class="space-y-2 text-sm text-brandSecondary italic">Loading...</ul>
+            </div>
+        </section>
 
-            <!-- Roster -->
-            <section>
-                <h2 class="text-lg font-bold mb-4">Student Roster</h2>
-                <div id="roster-container" class="space-y-3"></div>
-            </section>
-        </main>
-        
-        <button onclick="window.scrollTo(0,0)" class="fixed bottom-6 right-6 bg-brandPrimary dark:bg-gray-600 text-white p-3 rounded-full shadow-lg hover:scale-110 transition-transform">↑</button>
+        <!-- Roster Section -->
+        <section>
+            <h3 class="font-bold text-gray-900 dark:text-white mb-3 sm:mb-4 px-1 text-sm sm:text-base">Student Roster</h3>
+            <div id="roster-container" class="space-y-6"></div>
+        </section>
     </div>
 
+    <!-- SIDE DRAWER / BOTTOM SHEET (History Tab) -->
+    <div id="historyTabOverlay" onclick="closeHistoryTab()" class="hidden fixed inset-0 z-40 bg-brandPrimary bg-opacity-40 backdrop-blur-sm opacity-0 transition-opacity duration-300"></div>
+    
+    <div id="historyTab" class="fixed z-50 bg-brandSurface dark:bg-gray-800 shadow-2xl flex flex-col sm:border-l border-brandBorder dark:border-gray-700
+        bottom-0 left-0 w-full h-[75vh] rounded-t-3xl sm:rounded-none sm:top-0 sm:left-auto sm:right-0 sm:w-[450px] sm:h-full
+        transform transition-transform duration-300 translate-y-full sm:translate-y-0 sm:translate-x-full">
+        
+        <div class="p-6 sm:p-8 flex-grow overflow-y-auto relative overscroll-contain">
+            <!-- Mobile pull-pill -->
+            <div class="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full mx-auto mb-4 sm:hidden"></div>
+            
+            <!-- Desktop Close Button -->
+            <button onclick="closeHistoryTab()" aria-label="Close history tab" class="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-full text-gray-400 hover:text-brandPrimary dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors hidden sm:block">
+                <svg class="w-6 h-6 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <!-- Header -->
+            <h2 class="text-xl sm:text-2xl font-bold mb-1 dark:text-white mt-2 sm:mt-0" id="drawerStudentName">Loading...</h2>
+            <p class="text-xs sm:text-sm text-brandStudent dark:text-blue-400 mb-6 sm:mb-8 font-semibold" id="drawerStudentMeta">ID: --- | Course: ---</p>
+            
+            <!-- Content -->
+            <h3 class="font-bold text-gray-900 dark:text-white mb-3 text-sm border-b border-brandBorder dark:border-gray-700 pb-2">Last 10 Classes</h3>
+            <div id="drawerHistoryList" class="space-y-3 sm:space-y-4">
+                <div class="skeleton h-20 w-full rounded-xl"></div>
+                <div class="skeleton h-20 w-full rounded-xl"></div>
+            </div>
+            
+            <!-- Mobile close hint -->
+            <div class="mt-8 text-center sm:hidden">
+                <button onclick="closeHistoryTab()" class="text-xs font-bold text-gray-400">Swipe down or tap to close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT -->
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbzNS8EVIRC-8owW0okhh1mD284l0CmjzUGCyJiNYPEE0gqceIGyGo5KuXMMnZ5-XYu_/exec";
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzNS8EVIRC-8owW0okhh1mD284l0CmjzUGCyJiNYPEE0gqceIGyGo5KuXMMnZ5-XYu_/exec";
         const APP_PIN = "237147";
 
-        document.addEventListener('DOMContentLoaded', () => {
-            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                document.documentElement.classList.add('dark');
+        // SILENT RETRY ENGINE
+        async function fetchWithRetry(url, options = {}, retries = 3, backoff = 1000) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return await response.json(); 
+                } catch (err) {
+                    if (i === retries - 1) throw err;
+                    const jitter = Math.floor(Math.random() * 500);
+                    await new Promise(res => setTimeout(res, backoff + jitter));
+                }
             }
-            if (localStorage.getItem('qc_pin_verified') === 'true') unlockApp();
-        });
-
-        function toggleDarkMode() {
-            document.documentElement.classList.toggle('dark');
-            localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
         }
 
-        function verifyPin() {
-            if (document.getElementById('pin-input').value === APP_PIN) {
+        // INIT & THEME
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('themeIcon');
+            const favicon = document.getElementById('favicon');
+            
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark'); localStorage.setItem('theme', 'light');
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />';
+                favicon.href = "./P%20Logo_Grey.png";
+            } else {
+                html.classList.add('dark'); localStorage.setItem('theme', 'dark');
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />';
+                favicon.href = "./P%20Logo_White.png";
+            }
+        }
+        
+        window.onload = () => {
+            if (localStorage.getItem('theme') === 'dark') {
+                document.documentElement.classList.add('dark');
+                document.getElementById('themeIcon').innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />';
+                document.getElementById('favicon').href = "./P%20Logo_White.png";
+            }
+            if (localStorage.getItem('qc_pin_verified') === 'true') {
+                const savedPic = localStorage.getItem('qc_pic_select');
+                if(savedPic) document.getElementById('picSelect').value = savedPic;
+                unlockApp();
+            } else {
+                document.getElementById('loginSection').classList.remove('hidden');
+            }
+        };
+
+        // SCROLL BUTTON
+        window.addEventListener('scroll', () => {
+            const btn = document.getElementById('backToTopBtn');
+            if (window.scrollY > 250) {
+                btn.classList.remove('hidden'); setTimeout(() => btn.classList.remove('opacity-0'), 10);
+            } else {
+                btn.classList.add('opacity-0'); setTimeout(() => btn.classList.add('hidden'), 300);
+            }
+        }, {passive: true});
+
+        // TOASTS & ANIMATIONS
+        function fadeOut(elementId, callback) {
+            const el = document.getElementById(elementId);
+            el.classList.remove('opacity-100', 'animate-swoop'); el.classList.add('opacity-0');
+            setTimeout(() => { el.classList.add('hidden'); if(callback) callback(); }, 300);
+        }
+
+        function fadeInSwoop(elementId) {
+            const el = document.getElementById(elementId);
+            el.classList.remove('hidden'); void el.offsetWidth; el.classList.add('animate-swoop', 'opacity-100');
+        }
+
+        function showGlobalBanner(id, message) {
+            const banner = document.getElementById(id);
+            banner.innerText = message;
+            banner.classList.remove('hidden'); void banner.offsetWidth;
+            banner.classList.remove('opacity-0'); banner.classList.add('opacity-100');
+            setTimeout(() => { fadeOut(id); }, 4000);
+        }
+
+        // AUTHENTICATION
+        function handleLogin() {
+            if (document.getElementById('pinInput').value === APP_PIN) {
                 localStorage.setItem('qc_pin_verified', 'true');
                 unlockApp();
             } else {
-                document.getElementById('pin-error').classList.remove('hidden');
+                const err = document.getElementById('loginError');
+                err.innerText = "Incorrect PIN."; err.classList.remove('hidden');
             }
         }
 
+        function logout() {
+            localStorage.removeItem('qc_pin_verified');
+            fadeOut('appSection', () => {
+                document.getElementById('pinInput').value = '';
+                document.getElementById('loginError').classList.add('hidden');
+                document.getElementById('loginSection').classList.remove('hidden');
+                void document.getElementById('loginSection').offsetWidth;
+                document.getElementById('loginSection').classList.remove('opacity-0'); 
+                document.getElementById('loginSection').classList.add('opacity-100');
+            });
+        }
+
         function unlockApp() {
-            document.getElementById('pin-screen').classList.add('hidden');
-            document.getElementById('app-container').classList.remove('hidden');
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('skeletonLoader').classList.remove('hidden');
             fetchData();
-            // Background auto-refresh every 30 mins
-            setInterval(fetchData, 30 * 60 * 1000);
         }
 
-        function showToast() {
-            const toast = document.getElementById('toast');
-            toast.style.transform = 'translate(-50%, 20px)';
-            setTimeout(() => { toast.style.transform = 'translate(-50%, -150%)'; }, 3000);
-        }
-
+        // DATA FETCHING & RENDERING
         function getHealthBadge(healthStr) {
-            if(healthStr === 'Excellent') return `<span class="bg-brandSuccess/20 text-brandSuccess px-2 py-0.5 rounded text-xs font-bold uppercase">Excellent</span>`;
-            if(healthStr === 'Average') return `<span class="bg-brandWarning/20 text-brandWarning px-2 py-0.5 rounded text-xs font-bold uppercase">Average</span>`;
-            if(healthStr === 'Help') return `<span class="bg-brandCritical/20 text-brandCritical px-2 py-0.5 rounded text-xs font-bold uppercase">Help Needed</span>`;
+            if(healthStr === 'Excellent') return `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-green-100 dark:bg-gray-700 text-green-700 dark:text-green-400 text-[10px] font-bold border border-green-200 dark:border-gray-600 uppercase ml-2">Excellent</span>`;
+            if(healthStr === 'Average') return `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-yellow-100 dark:bg-gray-700 text-yellow-700 dark:text-yellow-400 text-[10px] font-bold border border-yellow-200 dark:border-gray-600 uppercase ml-2">Average</span>`;
+            if(healthStr === 'Help') return `<span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-red-100 dark:bg-gray-700 text-red-700 dark:text-red-400 text-[10px] font-bold border border-red-200 dark:border-gray-600 uppercase ml-2">Help Needed</span>`;
             return ``;
         }
 
         async function fetchData() {
-            const container = document.getElementById('roster-container');
-            if(container.innerHTML === '') container.innerHTML = '<div class="skeleton h-20 rounded-2xl w-full"></div>';
-            
-            const pic = document.getElementById('pic-select').value;
+            const pic = document.getElementById('picSelect').value;
+            localStorage.setItem('qc_pic_select', pic);
+
             try {
-                const response = await fetch(`${API_URL}?action=getDashboardData&pic_name=${pic}`);
-                const json = await response.json();
-                if(json.status === 'success') {
-                    renderDashboard(json.data);
-                    showToast();
-                } else container.innerHTML = `<p class="text-brandCritical">Error: ${json.message}</p>`;
+                const res = await fetchWithRetry(`${GAS_API_URL}?action=getDashboardData&pic_name=${pic}`);
+                if(res.status === 'success') {
+                    renderDashboard(res.data);
+                    if (!document.getElementById('skeletonLoader').classList.contains('hidden')) {
+                        document.getElementById('skeletonLoader').classList.add('hidden');
+                        fadeInSwoop('appSection'); 
+                    } else {
+                        showGlobalBanner('globalSuccess', 'Data synchronized successfully.');
+                    }
+                } else {
+                    showGlobalBanner('globalError', "Error: " + res.message);
+                }
             } catch (err) {
-                container.innerHTML = `<p class="text-brandCritical">Google Servers Busy - Retry in 60s</p>`;
+                showGlobalBanner('globalError', "Network busy. Retrying later.");
             }
         }
 
         function renderDashboard(data) {
+            // Metrics
             document.getElementById('metric-flags').innerText = data.summary.total_flags;
             document.getElementById('metric-post').innerText = data.summary.missing_post;
             document.getElementById('metric-nomad').innerText = data.summary.missing_nomad;
             document.getElementById('metric-watch').innerText = data.summary.critical_watchlist;
 
-            // Render Flags
+            // Flags
             const flagList = document.getElementById('behavior-flag-list');
-            if(data.action_items.behavior_flags.length > 0) {
+            if(data.action_items.behavior_flags && data.action_items.behavior_flags.length > 0) {
                 flagList.innerHTML = data.action_items.behavior_flags.map(f => 
-                    `<li class="p-2 bg-brandCritical/10 border border-brandCritical/30 rounded text-brandPrimary dark:text-white">
-                        <b>${f.student_name}</b>: ${f.type} <span class="text-xs ml-2 text-brandSecondary">Teacher: ${f.teacher}</span>
+                    `<li class="p-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-xl text-brandPrimary dark:text-gray-200 flex justify-between items-center">
+                        <div><b class="text-brandPrimary dark:text-white">${f.student_name}</b><br><span class="text-xs text-brandCritical">${f.type}</span></div>
+                        <span class="text-[10px] text-brandSecondary bg-brandSurface dark:bg-gray-800 px-2 py-1 rounded shadow-sm border border-brandBorder dark:border-gray-700">T: ${f.teacher}</span>
                     </li>`
                 ).join('');
             } else {
-                flagList.innerHTML = `<div class="text-brandSuccess font-bold">🎉 All clear!</div>`;
+                flagList.innerHTML = `<div class="text-brandSuccess font-bold text-center py-4 bg-green-50 dark:bg-green-900/10 rounded-xl border border-green-100 dark:border-green-800">🎉 Queue is empty!</div>`;
             }
 
-            // Render Roster
+            const missingList = document.getElementById('missing-data-list');
+            missingList.innerHTML = `<div class="text-brandSuccess font-bold text-center py-4 bg-green-50 dark:bg-green-900/10 rounded-xl border border-green-100 dark:border-green-800">🎉 Fully caught up!</div>`;
+
+            // Roster
             const container = document.getElementById('roster-container');
             container.innerHTML = '';
             
             if(Object.keys(data.roster_by_course).length === 0) {
-                container.innerHTML = '<div class="p-8 text-center text-brandSuccess font-bold text-lg">All clear! No students to show.</div>';
+                container.innerHTML = '<div class="p-8 text-center text-brandSuccess font-bold text-lg bg-brandSurface dark:bg-gray-800 rounded-2xl shadow-sm border border-brandBorder dark:border-gray-700">All clear! No students found.</div>';
                 return;
             }
 
             for (const [course, students] of Object.entries(data.roster_by_course)) {
-                let courseHTML = `<div class="mb-6"><h3 class="font-bold text-brandSecondary mb-2 border-b border-brandBorder dark:border-gray-700 pb-1">${course}</h3><div class="space-y-3">`;
+                let courseHTML = `<div class="mb-6"><h4 class="font-bold text-brandSecondary mb-3 border-b border-brandBorder dark:border-gray-700 pb-1.5 px-1">${course}</h4><div class="space-y-2 sm:space-y-3 px-1 sm:px-0">`;
                 
                 students.forEach(student => {
                     courseHTML += `
-                    <div id="student-card-${student.student_id}" class="bg-brandSurface dark:bg-gray-800 p-4 rounded-2xl border border-brandBorder dark:border-gray-700 shadow-sm hover:border-brandStudent cursor-pointer transition-colors" onclick="toggleHistory('${student.student_id}')">
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <h4 class="font-bold">${student.student_name} ${getHealthBadge(student.health)}</h4>
-                                <p class="text-xs text-brandSecondary mt-1">ID: ${student.student_id} | Campus: ${student.campus_id}</p>
+                    <div onclick="openHistoryTab('${student.student_id}', '${student.student_name}', '${course}')" class="flex items-center justify-between p-3 sm:p-4 bg-white dark:bg-gray-800 border border-brandBorder dark:border-gray-700 rounded-xl shadow-sm hover:border-brandStudent dark:hover:border-blue-500 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md cursor-pointer group">
+                        <div class="flex items-center gap-3 sm:gap-4 overflow-hidden pr-2">
+                            <div class="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-blue-50 dark:bg-gray-700 flex items-center justify-center text-brandStudent dark:text-gray-300 font-bold text-xs sm:text-sm border border-blue-100 dark:border-gray-600">${course}</div>
+                            <div class="truncate">
+                                <h4 class="font-bold text-gray-900 dark:text-white leading-tight text-sm sm:text-base truncate">${student.student_name} ${getHealthBadge(student.health)}</h4>
+                                <p class="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 mt-0.5 font-medium truncate">ID: ${student.student_id} &middot; ${student.campus_id}</p>
                             </div>
-                            <span class="bg-gray-100 dark:bg-gray-700 text-brandSecondary px-3 py-1 rounded-full text-xs font-semibold">Expand ⌄</span>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <span class="text-brandSecondary group-hover:text-brandStudent transition-colors font-bold text-lg leading-none">&rarr;</span>
                         </div>
                     </div>`;
                 });
-                
                 container.innerHTML += courseHTML + `</div></div>`;
             }
         }
 
-        async function toggleHistory(studentId) {
-            const bodyId = `history-body-${studentId}`;
-            let body = document.getElementById(bodyId);
+        // DRAWER LOGIC
+        function openHistoryTab(studentId, studentName, course) {
+            document.getElementById('drawerStudentName').innerText = studentName;
+            document.getElementById('drawerStudentMeta').innerText = `ID: ${studentId} | Course: ${course}`;
+            document.getElementById('drawerHistoryList').innerHTML = `<div class="skeleton h-20 w-full rounded-xl"></div><div class="skeleton h-20 w-full rounded-xl"></div>`;
             
-            if (body) {
-                body.classList.toggle('hidden');
-                return;
-            }
-
-            const card = document.getElementById(`student-card-${studentId}`);
-            body = document.createElement('div');
-            body.id = bodyId;
-            body.className = "mt-4 pt-4 border-t border-brandBorder dark:border-gray-700 space-y-3 cursor-default";
-            body.innerHTML = `<div class="skeleton h-12 rounded-lg w-full"></div>`;
+            const overlay = document.getElementById('historyTabOverlay');
+            overlay.classList.remove('hidden'); void overlay.offsetWidth; 
+            overlay.classList.remove('opacity-0'); overlay.classList.add('opacity-100');
             
-            body.onclick = (e) => e.stopPropagation();
-            card.appendChild(body);
+            const tab = document.getElementById('historyTab');
+            tab.classList.remove('translate-y-full', 'sm:translate-x-full');
+            tab.classList.add('translate-y-0', 'sm:translate-x-0');
 
-            try {
-                const res = await fetch(`${API_URL}?action=getStudentHistory&student_id=${studentId}`);
-                const json = await res.json();
-                if (json.status === 'success') renderHistoryList(body, json.data);
-                else body.innerHTML = `<p class="text-brandCritical text-sm">Failed to load history.</p>`;
-            } catch(err) {
-                body.innerHTML = `<p class="text-brandCritical text-sm">Network error.</p>`;
-            }
+            document.body.style.overflow = 'hidden';
+
+            // Fetch History
+            fetchWithRetry(`${GAS_API_URL}?action=getStudentHistory&student_id=${studentId}`)
+                .then(res => {
+                    if (res.status === 'success') renderHistoryDrawer(res.data);
+                    else document.getElementById('drawerHistoryList').innerHTML = `<p class="text-brandCritical text-sm">Failed to load history.</p>`;
+                })
+                .catch(err => {
+                    document.getElementById('drawerHistoryList').innerHTML = `<p class="text-brandCritical text-sm">Network error.</p>`;
+                });
         }
 
-        function renderHistoryList(container, historyData) {
+        function renderHistoryDrawer(historyData) {
+            const container = document.getElementById('drawerHistoryList');
             if (historyData.length === 0) {
-                container.innerHTML = `<p class="text-brandSecondary text-sm italic">No past classes found.</p>`;
+                container.innerHTML = `<div class="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl text-center text-sm text-brandSecondary italic">No past classes recorded yet.</div>`;
                 return;
             }
 
             container.innerHTML = historyData.map(item => {
                 const hasNomad = item.nomad_text && item.nomad_text.length > 0;
-                let behaviorHTML = `<span class="text-brandCritical text-sm italic">Pending teacher review</span>`;
-                
+                let behaviorHTML = `<span class="inline-flex items-center px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 text-[10px] font-bold uppercase tracking-wider">Pending Review</span>`;
+                let commentHTML = ``;
+
                 if (hasNomad) {
                     const attMatch = item.nomad_text.match(/Attentiveness:\s*(\d)/);
                     const motMatch = item.nomad_text.match(/Motivation:\s*(\d)/);
                     const att = attMatch ? attMatch[1] : '?';
                     const mot = motMatch ? motMatch[1] : '?';
+                    
+                    const attClass = att <= 2 ? 'text-brandCritical' : 'text-brandSuccess';
+                    const motClass = mot <= 2 ? 'text-brandCritical' : 'text-brandSuccess';
+
                     behaviorHTML = `
-                        <span class="text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">Attentiveness: <b>${att}/5</b></span>
-                        <span class="text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded ml-2">Motivation: <b>${mot}/5</b></span>
-                        <details class="mt-2 text-sm text-brandSecondary"><summary class="cursor-pointer hover:text-brandPrimary font-bold">Read Comment</summary><p class="mt-1 p-2 bg-gray-50 dark:bg-gray-900 rounded">${item.nomad_text}</p></details>
+                        <div class="flex gap-2">
+                            <span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-semibold text-brandSecondary">Att: <b class="${attClass}">${att}/5</b></span>
+                            <span class="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded font-semibold text-brandSecondary">Mot: <b class="${motClass}">${mot}/5</b></span>
+                        </div>
+                    `;
+                    commentHTML = `
+                        <details class="mt-3 group/comment">
+                            <summary class="text-xs font-bold text-brandStudent cursor-pointer hover:underline outline-none list-none flex items-center gap-1">
+                                <span>Read Teacher Comment</span>
+                                <svg class="w-3 h-3 transition-transform group-open/comment:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                            </summary>
+                            <p class="mt-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg text-xs leading-relaxed text-brandPrimary dark:text-gray-300 border border-gray-100 dark:border-gray-800">${item.nomad_text.replace(/\n/g, '<br>')}</p>
+                        </details>
                     `;
                 }
 
                 return `
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-brandBorder dark:border-gray-700">
-                    <div class="mb-2 md:mb-0">
-                        <span class="font-bold text-sm block">Session ${item.session} <span class="text-brandSecondary font-normal ml-2">${item.date}</span></span>
-                        <span class="text-xs text-brandSecondary">Teacher: ${item.teacher}</span>
+                <div class="p-4 bg-white dark:bg-gray-800 border border-brandBorder dark:border-gray-700 rounded-xl shadow-sm">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h4 class="font-bold text-sm text-brandPrimary dark:text-white">Session ${item.session}</h4>
+                            <p class="text-[10px] text-brandSecondary mt-0.5">${item.date} &middot; T: ${item.teacher}</p>
+                        </div>
+                        <div class="text-right">${behaviorHTML}</div>
                     </div>
-                    <div class="text-left md:text-right w-full md:w-auto">${behaviorHTML}</div>
+                    ${commentHTML}
                 </div>`;
             }).join('');
         }
+
+        function closeHistoryTab() {
+            const tab = document.getElementById('historyTab');
+            tab.classList.remove('translate-y-0', 'sm:translate-x-0');
+            tab.classList.add('translate-y-full', 'sm:translate-x-full');
+            const overlay = document.getElementById('historyTabOverlay');
+            overlay.classList.remove('opacity-100'); overlay.classList.add('opacity-0');
+            setTimeout(() => { overlay.classList.add('hidden'); }, 300);
+            
+            document.body.style.overflow = '';
+        }
+
+        // Swipe-down to close for mobile drawer
+        let touchStartDrawerY = 0;
+        const drawerEl = document.getElementById('historyTab');
+        drawerEl.addEventListener('touchstart', e => { touchStartDrawerY = e.changedTouches[0].screenY; }, {passive: true});
+        drawerEl.addEventListener('touchend', e => {
+            if (e.changedTouches[0].screenY - touchStartDrawerY > 60) closeHistoryTab();
+        }, {passive: true});
+
     </script>
 </body>
 </html>
